@@ -1,0 +1,24 @@
+{
+  "name": "twentyfish-monorepo",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "tools/*"
+  ],
+  "scripts": {
+    "dev": "pnpm --filter twentyfish-web dev",
+    "build": "pnpm --filter twentyfish-web build",
+    "start": "pnpm --filter twentyfish-web start",
+    "build:packages": "pnpm --filter \"@twentyfish/*\" build",
+    "test": "pnpm --filter \"*\" test",
+    "lint": "pnpm --filter \"*\" lint",
+    "clean": "rimraf \"**/node_modules\" \"**/dist\" \"**/.next\"",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\""
+  },
+  "devDependencies": {
+    "prettier": "^3.0.0",
+    "rimraf": "^5.0.0"
+  }
+}
