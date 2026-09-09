@@ -64,12 +64,12 @@ export class UciAdapter extends EventEmitter {
       this.emit('bestmove', bestMove);
     }
     else if (message.includes('info')) {
-      const info = this.parseInfo(message);
+      const info = UciAdapter.parseInfo(message);
       this.emit('info', info);
     }
   }
 
-  private parseInfo(infoLine: string): UciInfo {
+  public static parseInfo(infoLine: string): UciInfo {
     const info: UciInfo = {};
     const parts = infoLine.split(' ');
     
