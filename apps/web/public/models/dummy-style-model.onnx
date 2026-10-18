@@ -1,0 +1,2 @@
+// Minimal dummy ONNX model placeholder
+// Real ONNX binary would be loaded here for production inference.
