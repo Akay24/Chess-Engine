@@ -1,87 +1,115 @@
-# TwentyFish
+# TwentyFish — Opponent-Adaptive Chess Engine
 
-TwentyFish is a production-ready chess application with 20 calibrated Stockfish-based difficulty levels, each approximately 200 Elo apart. The application features a smooth UI/UX, comprehensive test coverage, and is designed for easy deployment.
+TwentyFish is an opponent-adaptive chess application built with Next.js (Pages Router), featuring 20 difficulty levels, live opponent style profiling, and adaptive move re-ranking that exploits human tendencies without weakening the chosen level.
+
+---
 
 ## Features
 
-- 20 difficulty presets (L1–L20) targeted to be ~200 Elo apart
-- Play vs engine, choose side, undo (optional), resign, draw offer
-- Time controls: Bullet/Blitz/Rapid/Classical + Increment
-- Opening book (polyglot) for early variety (optional toggle)
-- Evaluation bar, principal variation (PV) line, depth, nodes, NPS
-- Move list (SAN), clocks, PGN export/import
-- Per-move engine thinking indicator; smooth UX
-- Board themes and piece sets; light/dark mode
-- Persistent settings (LocalStorage) & Sharable game link (URL params)
-- Calibration module to keep levels ~200 Elo apart using UCI options & time handicaps
+- **20 Difficulty Presets (L1–L20):** Ranging from beginner (L1) to maximum engine depth (L20).
+- **Opponent Style Profiling:** Real-time multi-dimensional vector tracking:
+  - Aggression (captures, flank pushes, queen/minor sorties, checks)
+  - Tactical vs. Positional (forcing move frequency, line sharpness)
+  - Open vs. Closed structure preferences
+  - King Safety (castling speed, pawn shield degradation)
+  - Blunder / Error rate (asynchronous evaluation swing tracking)
+  - Time pressure (clock consumption and rapid move analysis)
+  - ECO opening family recognition
+- **Adaptive Move Selector:**
+  - MultiPV candidate analysis (default 4 lines).
+  - Strict eval-window filter ensuring no move outside `evalWindowCp` can ever be selected.
+  - Heuristic and ONNX-based model support with automatic graceful fallback.
+  - Levels 19–20: adaptation strictly turned off (pure best move).
+- **Modern Responsive UI (3-Rail Desktop, Responsive down to 360px):**
+  - **Left Rail:** Vertical eval bar, depth, nodes, NPS, and PV lines.
+  - **Center:** Interactive chessboard with check indicator, last-move highlight, legal-move dots, and dual clocks.
+  - **Right Rail:** Scrollable SAN move list (click-to-review), game controls, and L1–L20 selector.
+  - **Opponent Profile Panel:** Interactive SVG radar chart with confidence muting, adaptation toggle, and plain-language strategy explanations.
+- **Game Management:** PGN export/import modal, takeback (undo), resign, draw offers, board themes, dark/light modes, and shareable URL parameters (`?fen=...&level=...`).
+
+---
+
+## Important Engine Architecture Note: UCI_Elo vs. Level Separation
+
+In Stockfish UCI implementations, the valid range for `UCI_Elo` is clamped between **1320 and 3190** (default 1320):
+- Low levels (L1–L3: target 800–1200) are clamped at 1320 by the engine; their realistic handicap is achieved through shallow search caps (`depth: 2–4`, `movetimeMs: 50–100`) and low `Skill Level` (0–3).
+- High levels (L12–L20: target 3000+) are separated primarily through deeper search depths (13–30) and time allowances rather than real Elo differentiation above the 3190 cap.
+- The `Contempt` option was removed in modern NNUE Stockfish; all style steering is achieved via MultiPV candidate move re-ranking within the per-level centipawn eval window.
+
+---
 
 ## Tech Stack
 
-- **Frontend**: Next.js 14 (App Router) + React 18 + TypeScript
-- **UI**: Tailwind CSS + shadcn/ui + Framer Motion + Radix primitives
-- **Board**: `react-chessboard` with `chess.js` for rules/validations
-- **Engine**: `stockfish.wasm` via dedicated Web Workers (one worker per engine instance)
-- **State**: Zustand for state management
-- **Testing**: Jest + @testing-library/react + Playwright
-- **Lint/Format**: ESLint (airbnb-ish) + Prettier + Husky + lint-staged
+- **Frontend:** Next.js 14 (**Pages Router**) + React 18 + TypeScript
+- **UI:** Tailwind CSS + Radix UI Primitives + Lucide Icons
+- **Board:** `react-chessboard` + `chess.js`
+- **Engine:** Dedicated Web Worker (runs all search, MultiPV, and adaptation off the main thread)
+- **State Management:** Zustand
+- **Testing:** Jest + `ts-jest` + `@testing-library/react`
+
+---
 
 ## Getting Started
 
 ### Prerequisites
 
 - Node.js (v18+)
-- pnpm (v7+)
+- pnpm (v8+) or `corepack enable`
 
 ### Installation
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/twentyfish.git
-cd twentyfish
+git clone https://github.com/Akay24/Chess-Engine.git
+cd Chess-Engine
 
-# Install dependencies
+# Install dependencies across all workspace packages
 pnpm install
 
-# Build packages
+# Build workspace packages
 pnpm build:packages
 
 # Start development server
 pnpm dev
 ```
 
-### Running in Production Mode
+### Running Tests
 
 ```bash
-# Build for production
-pnpm build
+# Run engine package unit tests (including adaptation, features, and property tests)
+pnpm --filter "@twentyfish/engine" test
 
-# Start production server
-pnpm start
+# Run web app store and component tests
+pnpm --filter twentyfish-web test
+
+# Build production bundle
+pnpm build:packages
+pnpm build
 ```
+
+---
 
 ## Project Structure
 
 ```
-/ (monorepo root)
-├─ apps/
-│  └─ web/                # Next.js app (UI)
-├─ packages/
-│  ├─ engine/             # Engine worker, Stockfish adapters, level presets, calibration
-│  ├─ ui/                  # Shared UI atoms/molecules (button, modal, panel)
-│  └─ core/                # Chess utilities, PGN, time controls, persistence, types
-├─ tools/
-│  └─ scripts/             # One-off scripts (calibrate, download wasm, verify)
-├─ .github/workflows/      # CI pipelines
-├─ .vscode/                 # Recommended extensions, debug launch configs
-└─ [Other files]            # License, READMEs, etc.
+TwentyFish/
+├── apps/
+│   └── web/                   # Next.js Pages Router application (UI & Web Worker)
+├── packages/
+│   ├── engine/                # Engine adapters, presets, and adaptation modules
+│   │   └── src/
+│   │       ├── adaptation/    # style-features, style-model, move-selector
+│   │       ├── presets.ts     # 20 calibrated level presets
+│   │       └── stockfish-engine.ts
+│   ├── core/                  # Game manager, clocks, PGN utilities
+│   └── ui/                    # Reusable UI primitives
+└── docs/
+    ├── adaptation-architecture.md  # Detailed adaptation pipeline documentation
+    └── style-model-contract.md     # Neural ONNX I/O contract specification
 ```
+
+---
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Acknowledgements
-
-- Stockfish engine team for their incredible chess engine
-- Chess.js and react-chessboard for the core chess functionality
-- All contributors and supporters of the project
+MIT

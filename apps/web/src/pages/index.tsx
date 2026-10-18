@@ -121,6 +121,7 @@ export default function HomePage() {
     } catch (err) {
       console.error('Failed to instantiate Stockfish worker:', err);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Sync level preset changes to engine
@@ -173,6 +174,7 @@ export default function HomePage() {
           console.error('Engine search error:', err);
         });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fen, turn, playerColor, isGameOver, engineReady, isThinking]);
 
   // Calculate legal move highlight squares
