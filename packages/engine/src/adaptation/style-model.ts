@@ -143,8 +143,19 @@ export class OnnxStyleModel implements StyleModel {
       if (this.sessionFactory) {
         this.session = await this.sessionFactory(this.modelPath);
       } else {
-        // Attempt dynamic import of onnxruntime-web in supported environments
-        const ort = await import('onnxruntime-web' as any).catch(() => null);
+        // Safe dynamic check for onnxruntime-web without triggering Webpack static module bundling
+        let ort: any = typeof globalThis !== 'undefined' ? (globalThis as any).ort : null;
+        if (!ort && typeof window !== 'undefined') {
+          ort = (window as any).ort;
+        }
+        if (!ort) {
+          try {
+            const dynamicImport = new Function('mod', 'return import(mod)');
+            ort = await dynamicImport('onnxruntime-web');
+          } catch {
+            ort = null;
+          }
+        }
         if (!ort || !ort.InferenceSession) {
           throw new Error('onnxruntime-web not available in current environment');
         }

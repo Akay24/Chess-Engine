@@ -2,8 +2,6 @@
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
-  experimental: {
-    appDir: true
-  }
+  transpilePackages: ['@twentyfish/engine', '@twentyfish/core', '@twentyfish/ui']
 };
 module.exports = nextConfig;
