@@ -1,6 +1,21 @@
-import { UciAdapter } from './uci-adapter';
+import { UciAdapter, UciInfo } from './uci-adapter';
 import { LevelPreset } from './presets';
 import EventEmitter from 'eventemitter3';
+import { StyleVector, MoveRecord, extractStyleFeatures } from './adaptation/style-features';
+import { StyleModel, HeuristicStyleModel, AdaptationPlan, PositionContext } from './adaptation/style-model';
+import { CandidateMove, selectAdaptiveMove } from './adaptation/move-selector';
+
+export interface AdaptationOptions {
+  enabled: boolean;
+  evalWindowCp?: number;
+  multiPv?: number;
+}
+
+export interface StyleUpdateEvent {
+  vector: StyleVector;
+  plan: AdaptationPlan;
+  status: string;
+}
 
 /**
  * Higher-level chess engine API for Stockfish
@@ -12,6 +27,12 @@ export class StockfishEngine extends EventEmitter {
   private currentFen: string = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
   private currentMoves: string[] = [];
   private activeLevel: LevelPreset | null = null;
+
+  public adaptationOptions: AdaptationOptions = { enabled: false, multiPv: 4 };
+  public styleModel: StyleModel = new HeuristicStyleModel();
+  public activeStyleVector: StyleVector | null = null;
+  public activePlan: AdaptationPlan | null = null;
+  private multiPvCandidates: Map<number, CandidateMove> = new Map();
 
   /**
    * Creates a new StockfishEngine instance
@@ -32,7 +53,26 @@ export class StockfishEngine extends EventEmitter {
       this.emit('bestmove', bestMove);
     });
     
-    this.adapter.on('info', (info: any) => {
+    this.adapter.on('info', (info: UciInfo) => {
+      if (info.multipv && info.pv && info.pv.length > 0) {
+        const uciMove = info.pv[0];
+        let scoreCp = 0;
+        if (info.score) {
+          if (info.score.unit === 'mate') {
+            scoreCp = info.score.value > 0 ? 30000 - info.score.value : -30000 - info.score.value;
+          } else {
+            scoreCp = info.score.value;
+          }
+        }
+
+        this.multiPvCandidates.set(info.multipv, {
+          multipv: info.multipv,
+          uci: uciMove,
+          scoreCp,
+          depth: info.depth || 1,
+          pv: info.pv
+        });
+      }
       this.emit('info', info);
     });
   }
@@ -76,6 +116,47 @@ export class StockfishEngine extends EventEmitter {
   }
 
   /**
+   * Configures adaptive play settings
+   */
+  configureAdaptation(options: Partial<AdaptationOptions>): void {
+    this.adaptationOptions = { ...this.adaptationOptions, ...options };
+    if (this.adaptationOptions.enabled) {
+      this.adapter.setMultiPv(this.adaptationOptions.multiPv ?? 4);
+    } else {
+      this.adapter.setMultiPv(1);
+    }
+  }
+
+  /**
+   * Updates opponent style profile from game history and emits styleUpdate event
+   */
+  async updateOpponentStyle(moves: MoveRecord[], humanColor: 'w' | 'b'): Promise<StyleUpdateEvent> {
+    const profile = extractStyleFeatures(moves, humanColor);
+    this.activeStyleVector = profile.vector;
+
+    const ctx: PositionContext = {
+      fen: this.currentFen,
+      ply: moves.length,
+      isEngineWhite: humanColor === 'b',
+      humanColor,
+      eco: profile.eco,
+      openingFamily: profile.openingFamily
+    };
+
+    const plan = await this.styleModel.plan(profile.vector, ctx);
+    this.activePlan = plan;
+
+    const eventPayload: StyleUpdateEvent = {
+      vector: profile.vector,
+      plan,
+      status: plan.explanation
+    };
+
+    this.emit('styleUpdate', eventPayload);
+    return eventPayload;
+  }
+
+  /**
    * Starts the search for the best move
    * @param options Optional search options to override level defaults
    * @returns Promise that resolves with the best move
@@ -91,6 +172,13 @@ export class StockfishEngine extends EventEmitter {
     }
     
     this.isSearching = true;
+    this.multiPvCandidates.clear();
+
+    if (this.adaptationOptions.enabled && activeLevel.id < 19) {
+      this.adapter.setMultiPv(this.adaptationOptions.multiPv ?? 4);
+    } else {
+      this.adapter.setMultiPv(1);
+    }
     
     return new Promise((resolve) => {
       const searchParams: { [key: string]: number } = {};
@@ -112,8 +200,20 @@ export class StockfishEngine extends EventEmitter {
       Object.assign(searchParams, options);
       
       // Listen for best move (one-time event)
-      this.once('bestmove', (bestMove: string) => {
-        resolve(bestMove);
+      this.once('bestmove', (nativeBestMove: string) => {
+        let finalMove = nativeBestMove;
+
+        if (this.adaptationOptions.enabled && this.activePlan && this.multiPvCandidates.size > 0) {
+          const sortedCandidates = Array.from(this.multiPvCandidates.values())
+            .sort((a, b) => a.multipv - b.multipv);
+
+          finalMove = selectAdaptiveMove(sortedCandidates, this.activePlan, activeLevel, {
+            adaptationEnabled: true,
+            evalWindowCp: this.adaptationOptions.evalWindowCp
+          });
+        }
+
+        resolve(finalMove);
       });
       
       // Start the search
