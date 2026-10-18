@@ -54,7 +54,10 @@ export class StockfishEngine extends EventEmitter {
     
     // Apply UCI options
     for (const [name, value] of Object.entries(level.uci)) {
-      this.adapter.setOption(name, value);
+      if (value !== undefined) {
+        const optionName = name === 'Skill' ? 'Skill Level' : name;
+        this.adapter.setOption(optionName, value);
+      }
     }
     
     // Other engine settings can be applied here
@@ -78,7 +81,8 @@ export class StockfishEngine extends EventEmitter {
    * @returns Promise that resolves with the best move
    */
   async searchBestMove(options: { [key: string]: number } = {}): Promise<string> {
-    if (!this.activeLevel) {
+    const activeLevel = this.activeLevel;
+    if (!activeLevel) {
       throw new Error('No level preset applied');
     }
     
@@ -92,16 +96,16 @@ export class StockfishEngine extends EventEmitter {
       const searchParams: { [key: string]: number } = {};
       
       // Apply level search caps
-      if (this.activeLevel.searchCaps.depth) {
-        searchParams.depth = this.activeLevel.searchCaps.depth;
+      if (activeLevel.searchCaps.depth) {
+        searchParams.depth = activeLevel.searchCaps.depth;
       }
       
-      if (this.activeLevel.searchCaps.movetimeMs) {
-        searchParams.movetime = this.activeLevel.searchCaps.movetimeMs;
+      if (activeLevel.searchCaps.movetimeMs) {
+        searchParams.movetime = activeLevel.searchCaps.movetimeMs;
       }
       
-      if (this.activeLevel.searchCaps.nodes) {
-        searchParams.nodes = this.activeLevel.searchCaps.nodes;
+      if (activeLevel.searchCaps.nodes) {
+        searchParams.nodes = activeLevel.searchCaps.nodes;
       }
       
       // Override with custom options

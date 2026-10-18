@@ -42,5 +42,21 @@ describe('UciAdapter', () => {
       expect(result.score).toEqual({ unit: 'cp', value: -120 });
       expect(result.pv).toEqual(['d2d4', 'd7d5']);
     });
+
+    it('should parse multipv lines correctly', () => {
+      const line1 = 'info depth 12 multipv 1 score cp 35 nodes 50000 nps 1000000 pv e2e4 e7e5 g1f3';
+      const line2 = 'info depth 12 multipv 2 score cp 12 nodes 50000 nps 1000000 pv d2d4 d7d5 c2c4';
+      
+      const parsed1 = UciAdapter.parseInfo(line1);
+      const parsed2 = UciAdapter.parseInfo(line2);
+
+      expect(parsed1.multipv).toBe(1);
+      expect(parsed1.score).toEqual({ unit: 'cp', value: 35 });
+      expect(parsed1.pv).toEqual(['e2e4', 'e7e5', 'g1f3']);
+
+      expect(parsed2.multipv).toBe(2);
+      expect(parsed2.score).toEqual({ unit: 'cp', value: 12 });
+      expect(parsed2.pv).toEqual(['d2d4', 'd7d5', 'c2c4']);
+    });
   });
 });

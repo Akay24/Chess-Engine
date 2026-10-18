@@ -39,6 +39,7 @@ export interface SearchLimits {
   winc?: number;
   binc?: number;
   movestogo?: number;
+  infinite?: boolean | number;
 }
 
 export class UciAdapter extends EventEmitter {
@@ -81,6 +82,9 @@ export class UciAdapter extends EventEmitter {
       }
       else if (part === 'seldepth' && i + 1 < parts.length) {
         info.seldepth = parseInt(parts[++i]);
+      }
+      else if (part === 'multipv' && i + 1 < parts.length) {
+        info.multipv = parseInt(parts[++i]);
       }
       else if (part === 'time' && i + 1 < parts.length) {
         info.time = parseInt(parts[++i]);
@@ -130,6 +134,10 @@ export class UciAdapter extends EventEmitter {
     this.send(`setoption name ${name} value ${value}`);
   }
 
+  public setMultiPv(count: number): void {
+    this.setOption('MultiPV', count);
+  }
+
   public setPosition(fen: string, moves: string[] = []): void {
     let command = `position fen ${fen}`;
     if (moves.length > 0) {
@@ -141,6 +149,7 @@ export class UciAdapter extends EventEmitter {
   public go(limits: SearchLimits = {}): void {
     let command = 'go';
     
+    if (limits.infinite) command += ' infinite';
     if (limits.depth) command += ` depth ${limits.depth}`;
     if (limits.nodes) command += ` nodes ${limits.nodes}`;
     if (limits.movetime) command += ` movetime ${limits.movetime}`;

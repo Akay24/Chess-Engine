@@ -137,11 +137,9 @@ export class GameManager {
    */
   loadPGN(pgn: string): boolean {
     try {
-      const success = this.chess.loadPgn(pgn);
-      if (success) {
-        this.moveHistory = this.chess.history();
-      }
-      return success;
+      this.chess.loadPgn(pgn);
+      this.moveHistory = this.chess.history();
+      return true;
     } catch (e) {
       console.error('Invalid PGN:', pgn);
       return false;
