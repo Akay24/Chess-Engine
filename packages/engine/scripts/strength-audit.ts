@@ -149,8 +149,8 @@ export async function runStrengthAudit(): Promise<{
     const pos = BENCHMARK_POSITIONS[i];
     process.stdout.write(`Evaluating Ref [${i + 1}/${BENCHMARK_POSITIONS.length}] ${pos.id} (${pos.desc})... `);
     const t0 = Date.now();
-    // Run reference search
-    const refRes = await searchPosition(refEngine, pos.fen, { depth: 14, movetime: 600 });
+    // Run reference search at fixed depth 12
+    const refRes = await searchPosition(refEngine, pos.fen, { depth: 12 });
     referenceMap.set(pos.fen, { bestmove: refRes.bestmove, scoreCp: refRes.scoreCp });
     console.log(`Move: ${refRes.bestmove} (${Date.now() - t0}ms)`);
   }
@@ -186,11 +186,10 @@ export async function runStrengthAudit(): Promise<{
       for (const pos of BENCHMARK_POSITIONS) {
         const ref = referenceMap.get(pos.fen)!;
 
-        // Apply level search caps (capped movetime for quick benchmark)
-        const depth = level.searchCaps.depth;
-        const movetime = Math.min(level.searchCaps.movetimeMs || 200, 200);
+        // Apply level search caps, aligned with reference depth (up to 12)
+        const depth = level.searchCaps.depth ? Math.min(level.searchCaps.depth, 12) : 12;
 
-        const res = await searchPosition(engine, pos.fen, { depth, movetime });
+        const res = await searchPosition(engine, pos.fen, { depth });
 
         if (res.bestmove === ref.bestmove) {
           matches++;
