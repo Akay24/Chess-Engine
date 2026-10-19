@@ -96,13 +96,29 @@ export default function HomePage() {
       });
 
       engine.on('info', (info: any) => {
+        const currentTurn = useGameStore.getState().turn;
+        const isWhiteTurn = currentTurn === 'w';
+
+        let scoreCp: number | undefined = undefined;
+        let isMate: boolean = false;
+        let mateIn: number | null = null;
+
+        if (info.score) {
+          if (info.score.unit === 'cp') {
+            scoreCp = isWhiteTurn ? info.score.value : -info.score.value;
+          } else if (info.score.unit === 'mate') {
+            isMate = true;
+            mateIn = isWhiteTurn ? info.score.value : -info.score.value;
+          }
+        }
+
         updateEngineInfo({
           depth: info.depth,
           nodes: info.nodes,
           nps: info.nps,
-          scoreCp: info.score?.unit === 'cp' ? info.score.value : undefined,
-          isMate: info.score?.unit === 'mate',
-          mateIn: info.score?.unit === 'mate' ? info.score.value : null,
+          scoreCp,
+          isMate,
+          mateIn,
           pv: info.pv,
           multipv: info.multipv
         });
