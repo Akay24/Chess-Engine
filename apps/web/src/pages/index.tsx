@@ -406,45 +406,42 @@ export default function HomePage() {
 
             {/* Right Rail (Desktop: col-span-3) */}
             <div className={`lg:col-span-3 space-y-4 ${mobileTab === 'board' ? 'hidden lg:block' : ''}`}>
-              {/* On mobile, tab switches between Moves and Profile */}
-              {mobileTab === 'moves' || typeof window !== 'undefined' && window.innerWidth >= 1024 ? (
-                <>
-                  <GameControls
-                    activeLevelId={activeLevelId}
-                    onSelectLevel={setActiveLevelId}
-                    playerColor={playerColor}
-                    onChangeSide={setPlayerColor}
-                    onNewGame={() => {
-                      resetGame();
-                      resetEngineState();
-                    }}
-                    onUndo={undoMove}
-                    onResign={resign}
-                    onOfferDraw={offerDraw}
-                    onExportPgn={getPgn}
-                    onImportPgn={loadPgn}
-                    onShareLink={() => {
-                      if (typeof window === 'undefined') return '';
-                      const u = new URL(window.location.href);
-                      u.searchParams.set('fen', fen);
-                      u.searchParams.set('level', activeLevelId.toString());
-                      return u.toString();
-                    }}
-                  />
+              {/* Desktop view always shows GameControls & MoveList, or mobile view when 'moves' is active */}
+              <div className={`space-y-4 ${mobileTab === 'profile' ? 'hidden lg:block' : 'block'}`}>
+                <GameControls
+                  activeLevelId={activeLevelId}
+                  onSelectLevel={setActiveLevelId}
+                  playerColor={playerColor}
+                  onChangeSide={setPlayerColor}
+                  onNewGame={() => {
+                    resetGame();
+                    resetEngineState();
+                  }}
+                  onUndo={undoMove}
+                  onResign={resign}
+                  onOfferDraw={offerDraw}
+                  onExportPgn={getPgn}
+                  onImportPgn={loadPgn}
+                  onShareLink={() => {
+                    if (typeof window === 'undefined') return '';
+                    const u = new URL(window.location.href);
+                    u.searchParams.set('fen', fen);
+                    u.searchParams.set('level', activeLevelId.toString());
+                    return u.toString();
+                  }}
+                />
 
-                  <MoveList
-                    sanMoves={sanMoves}
-                    selectedPly={selectedPly}
-                    onSelectPly={selectPly}
-                  />
-                </>
-              ) : null}
+                <MoveList
+                  sanMoves={sanMoves}
+                  selectedPly={selectedPly}
+                  onSelectPly={selectPly}
+                />
+              </div>
 
-              {mobileTab === 'profile' && (
-                <div className="lg:hidden">
-                  <AdaptationPanel />
-                </div>
-              )}
+              {/* On mobile, show AdaptationPanel when 'profile' tab is active */}
+              <div className={`lg:hidden ${mobileTab === 'profile' ? 'block' : 'hidden'}`}>
+                <AdaptationPanel />
+              </div>
             </div>
 
           </div>
