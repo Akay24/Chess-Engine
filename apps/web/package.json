@@ -15,6 +15,7 @@
     "@radix-ui/react-dialog": "1.0.0",
     "@radix-ui/react-dropdown-menu": "1.0.0",
     "@radix-ui/react-tabs": "1.0.0",
+    "@supabase/supabase-js": "^2.118.0",
     "@twentyfish/core": "workspace:*",
     "@twentyfish/engine": "workspace:*",
     "@twentyfish/ui": "workspace:*",
