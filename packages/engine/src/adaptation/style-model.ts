@@ -65,8 +65,9 @@ export class HeuristicStyleModel implements StyleModel {
     let preferredStructure: 'open' | 'closed' | 'semi-open' | 'neutral' = 'neutral';
     const explanations: string[] = [];
 
-    // Case 1: Aggressive or highly tactical opponent
-    if (effAggression > 0.55 || effTactical > 0.55) {
+    // Case 1: Aggressive or highly tactical opponent (requires sample confidence >= 0.25)
+    const hasAggressionConfidence = (v.aggression.confidence >= 0.25 || v.tactical.confidence >= 0.25);
+    if ((effAggression > 0.55 || effTactical > 0.55) && hasAggressionConfidence) {
       weights.closedPosition = 0.6;
       weights.tacticalSharpness = -0.5;
       weights.pieceTrades = 0.7;
@@ -74,8 +75,8 @@ export class HeuristicStyleModel implements StyleModel {
       preferredStructure = 'closed';
       explanations.push('Opponent plays aggressively — steering toward solid, closed structures and favorable piece trades.');
     }
-    // Case 2: Passive or quiet opponent
-    else if (effAggression < 0.45 && effTactical < 0.45 && v.aggression.confidence > 0.2) {
+    // Case 2: Passive or quiet opponent (requires sample confidence >= 0.25)
+    else if (effAggression < 0.45 && effTactical < 0.45 && hasAggressionConfidence) {
       weights.closedPosition = -0.6;
       weights.tacticalSharpness = 0.6;
       weights.pieceTrades = -0.4;
