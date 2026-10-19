@@ -195,6 +195,8 @@ export class StockfishEngine extends EventEmitter {
     } else {
       this.adapter.setMultiPv(1);
     }
+
+    await this.adapter.syncReady();
     
     return new Promise((resolve) => {
       const searchParams: { [key: string]: number } = {};

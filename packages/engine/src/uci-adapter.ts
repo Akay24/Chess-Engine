@@ -183,6 +183,13 @@ export class UciAdapter extends EventEmitter {
     return this.initPromise;
   }
 
+  public async syncReady(): Promise<void> {
+    return new Promise<void>((resolve) => {
+      this.once('ready', () => resolve());
+      this.send('isready');
+    });
+  }
+
   public send(command: string): void {
     if (this.debug) {
       console.log(`[UCI >> ${this.debugTag}] ${command}`);

@@ -130,7 +130,15 @@ export function selectAdaptiveMove(
     throw new Error('Candidate moves list cannot be empty');
   }
 
-  const bestCandidate = candidates[0];
+  // Find the true maximum scoring candidate regardless of initial ordering
+  let bestCandidate = candidates[0];
+  let maxScore = bestCandidate.scoreCp;
+  for (const c of candidates) {
+    if (c.scoreCp > maxScore) {
+      maxScore = c.scoreCp;
+      bestCandidate = c;
+    }
+  }
 
   // 1. Levels 19-20, adaptation disabled, or single candidate -> strictly best move
   if (
@@ -155,8 +163,13 @@ export function selectAdaptiveMove(
     return bestCandidate.uci;
   }
 
-  const bestScore = bestCandidate.scoreCp;
+  const bestScore = maxScore;
   const eligible = candidates.filter(c => c.scoreCp >= bestScore - windowCp);
+
+  // Guarantee that the best candidate is always present in eligible
+  if (!eligible.some(c => c.uci === bestCandidate.uci)) {
+    eligible.unshift(bestCandidate);
+  }
 
   if (eligible.length <= 1) {
     return bestCandidate.uci;
