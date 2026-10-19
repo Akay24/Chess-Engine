@@ -1,4 +1,4 @@
-import { UciAdapter, UciInfo } from './uci-adapter';
+import { UciAdapter, UciInfo, WorkerLike } from './uci-adapter';
 import { LevelPreset } from './presets';
 import EventEmitter from 'eventemitter3';
 import { StyleVector, MoveRecord, extractStyleFeatures } from './adaptation/style-features';
@@ -27,6 +27,7 @@ export class StockfishEngine extends EventEmitter {
   private currentFen: string = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
   private currentMoves: string[] = [];
   private activeLevel: LevelPreset | null = null;
+  public debug: boolean = false;
 
   public adaptationOptions: AdaptationOptions = { enabled: false, multiPv: 4 };
   public styleModel: StyleModel = new HeuristicStyleModel();
@@ -36,9 +37,9 @@ export class StockfishEngine extends EventEmitter {
 
   /**
    * Creates a new StockfishEngine instance
-   * @param workerPath Path to the Stockfish WASM worker
+   * @param workerPath Path to the Stockfish WASM worker or a WorkerLike instance
    */
-  constructor(workerPath: string) {
+  constructor(workerPath: string | WorkerLike) {
     super();
     this.adapter = new UciAdapter(workerPath);
     
@@ -86,11 +87,25 @@ export class StockfishEngine extends EventEmitter {
   }
 
   /**
+   * Enables or disables debug instrumentation logging
+   */
+  setDebug(enabled: boolean): void {
+    this.debug = enabled;
+    this.syncDebugState();
+  }
+
+  private syncDebugState(): void {
+    this.adapter.debug = this.debug;
+    this.adapter.debugTag = `L${this.activeLevel?.id ?? '?'}, adapt: ${this.adaptationOptions.enabled ? 'ON' : 'OFF'}`;
+  }
+
+  /**
    * Applies a difficulty level preset to the engine
    * @param level Level preset to apply
    */
   applyLevel(level: LevelPreset): void {
     this.activeLevel = level;
+    this.syncDebugState();
     
     // Apply UCI options
     for (const [name, value] of Object.entries(level.uci)) {
@@ -120,6 +135,7 @@ export class StockfishEngine extends EventEmitter {
    */
   configureAdaptation(options: Partial<AdaptationOptions>): void {
     this.adaptationOptions = { ...this.adaptationOptions, ...options };
+    this.syncDebugState();
     if (this.adaptationOptions.enabled) {
       this.adapter.setMultiPv(this.adaptationOptions.multiPv ?? 4);
     } else {
@@ -211,6 +227,10 @@ export class StockfishEngine extends EventEmitter {
             adaptationEnabled: true,
             evalWindowCp: this.adaptationOptions.evalWindowCp
           });
+        }
+
+        if (this.debug) {
+          console.log(`[SEARCH RESULT] level=${activeLevel.id} adaptation=${this.adaptationOptions.enabled ? 'ON' : 'OFF'} engine_bestmove=${nativeBestMove} chosen_move=${finalMove} altered=${nativeBestMove !== finalMove}`);
         }
 
         resolve(finalMove);

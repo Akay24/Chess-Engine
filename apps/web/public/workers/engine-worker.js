@@ -328,10 +328,24 @@ function searchRoot(state, maxDepth, movetimeMs) {
     const elapsed = Math.max(1, Date.now() - startTime);
     const nps = Math.floor((totalNodes / elapsed) * 1000);
 
+let debugMode = false;
+
+function logWorker(dir, text) {
+  if (debugMode) {
+    const tag = `[WORKER ${dir} | Skill=${options.SkillLevel} MultiPV=${options.MultiPV}]`;
+    console.log(`${tag} ${text}`);
+  }
+}
+
+function sendMsg(msg) {
+  logWorker('<<', msg);
+  self.postMessage(msg);
+}
+
     for (let pvIdx = 0; pvIdx < multiPvCount; pvIdx++) {
       const cand = scoredMoves[pvIdx];
       const line = `info depth ${depth} seldepth ${depth + 2} multipv ${pvIdx + 1} score cp ${cand.score} nodes ${totalNodes} nps ${nps} time ${elapsed} pv ${cand.move.uci}`;
-      self.postMessage(line);
+      sendMsg(line);
     }
   }
 
@@ -347,22 +361,29 @@ self.onmessage = function (e) {
   const line = (typeof e.data === 'string' ? e.data : e.data.type || '').trim();
   if (!line) return;
 
+  logWorker('>>', line);
+
   const parts = line.split(' ');
   const cmd = parts[0];
 
   switch (cmd) {
+    case 'debug':
+      debugMode = parts[1] === 'on' || parts[1] === 'true';
+      break;
+
     case 'uci':
-      self.postMessage('id name TwentyFish 1.0 (WebWorker)');
-      self.postMessage('id author TwentyFish Team');
-      self.postMessage('option name MultiPV type spin default 1 min 1 max 500');
-      self.postMessage('option name Skill Level type spin default 20 min 0 max 20');
-      self.postMessage('option name UCI_LimitStrength type check default false');
-      self.postMessage('option name UCI_Elo type spin default 1320 min 1320 max 3190');
-      self.postMessage('uciok');
+      sendMsg('id name TwentyFish 1.0 (WebWorker)');
+      sendMsg('id author TwentyFish Team');
+      sendMsg('option name MultiPV type spin default 1 min 1 max 500');
+      sendMsg('option name Skill Level type spin default 20 min 0 max 20');
+      sendMsg('option name UCI_LimitStrength type check default false');
+      sendMsg('option name UCI_Elo type spin default 1320 min 1320 max 3190');
+      sendMsg('option name Debug type check default false');
+      sendMsg('uciok');
       break;
 
     case 'isready':
-      self.postMessage('readyok');
+      sendMsg('readyok');
       break;
 
     case 'setoption':
@@ -421,7 +442,7 @@ self.onmessage = function (e) {
         const results = searchRoot(boardState, depth, movetime);
         const best = results[0] ? results[0].uci : '0000';
         isSearching = false;
-        self.postMessage(`bestmove ${best}`);
+        sendMsg(`bestmove ${best}`);
       }, 10);
       break;
 

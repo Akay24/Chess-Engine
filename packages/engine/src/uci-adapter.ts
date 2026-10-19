@@ -42,20 +42,77 @@ export interface SearchLimits {
   infinite?: boolean | number;
 }
 
+export interface WorkerLike {
+  postMessage(message: any): void;
+  onmessage?: any;
+  terminate?: () => void;
+}
+
 export class UciAdapter extends EventEmitter {
-  private worker: Worker;
+  private worker: WorkerLike;
   private isReady: boolean = false;
   private initPromise: Promise<void> | null = null;
+  public debug: boolean = false;
+  public debugTag: string = 'default';
 
-  constructor(workerPath: string) {
+  constructor(workerOrPath: string | WorkerLike) {
     super();
-    this.worker = new Worker(workerPath);
+    if (typeof workerOrPath === 'string') {
+      if (typeof Worker !== 'undefined') {
+        this.worker = new Worker(workerOrPath) as unknown as WorkerLike;
+      } else {
+        // Node.js environment worker_threads fallback
+        try {
+          const { Worker: NodeWorker } = require('worker_threads');
+          const path = require('path');
+          let sfPath = '';
+          try {
+            sfPath = require.resolve('stockfish.js/stockfish.js');
+          } catch {
+            sfPath = path.resolve(__dirname, '../../../../node_modules/.pnpm/stockfish.js@10.0.2/node_modules/stockfish.js/stockfish.js');
+          }
+
+          const workerCode = `
+            const { parentPort } = require('worker_threads');
+            global.self = global;
+            global.postMessage = (msg) => parentPort.postMessage(msg);
+            global.importScripts = () => {};
+            global.location = { href: 'http://localhost/stockfish.js' };
+            require('${sfPath}');
+            parentPort.on('message', (msg) => {
+              if (typeof global.onmessage === 'function') {
+                global.onmessage({ data: msg });
+              }
+            });
+          `;
+
+          const nodeWorker = new NodeWorker(workerCode, { eval: true });
+          const workerBridge: WorkerLike = {
+            postMessage: (msg: any) => nodeWorker.postMessage(msg),
+            terminate: () => nodeWorker.terminate()
+          };
+          nodeWorker.on('message', (msg: any) => {
+            if (workerBridge.onmessage) workerBridge.onmessage({ data: msg } as any);
+          });
+          this.worker = workerBridge;
+        } catch (e) {
+          throw new Error(`Web Worker is not available and Node worker fallback failed: ${e}`);
+        }
+      }
+    } else {
+      this.worker = workerOrPath;
+    }
+
     this.worker.onmessage = this.handleMessage.bind(this);
   }
 
-  private handleMessage(e: MessageEvent) {
-    const message = e.data as string;
+  private handleMessage(e: MessageEvent | { data: any }) {
+    const message = (typeof e.data === 'string' ? e.data : '') as string;
     
+    if (this.debug) {
+      console.log(`[UCI << ${this.debugTag}] ${message}`);
+    }
+
     if (message.includes('readyok')) {
       this.isReady = true;
       this.emit('ready');
@@ -127,6 +184,9 @@ export class UciAdapter extends EventEmitter {
   }
 
   public send(command: string): void {
+    if (this.debug) {
+      console.log(`[UCI >> ${this.debugTag}] ${command}`);
+    }
     this.worker.postMessage(command);
   }
 
@@ -168,6 +228,6 @@ export class UciAdapter extends EventEmitter {
 
   public quit(): void {
     this.send('quit');
-    this.worker.terminate();
+    this.worker.terminate?.();
   }
 }
