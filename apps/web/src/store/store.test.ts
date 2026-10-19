@@ -58,9 +58,19 @@ describe('Zustand Stores', () => {
       expect(useGameStore.getState().gameResult).toContain('wins by resignation');
 
       useGameStore.getState().resetGame();
-      useGameStore.getState().offerDraw();
+      // Early draw offer with 0 moves should be rejected
+      const earlyAccepted = useGameStore.getState().offerDraw();
+      expect(earlyAccepted).toBe(false);
+      expect(useGameStore.getState().isGameOver).toBe(false);
+
+      // Play a quick sequence of moves to reach 10 plies
+      useGameStore.getState().loadPgn('1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Be7');
+      expect(useGameStore.getState().sanMoves.length).toBe(10);
+
+      const accepted = useGameStore.getState().offerDraw();
+      expect(accepted).toBe(true);
       expect(useGameStore.getState().isGameOver).toBe(true);
-      expect(useGameStore.getState().gameResult).toContain('drawn');
+      expect(useGameStore.getState().gameResult).toContain('drawn by mutual agreement');
     });
   });
 

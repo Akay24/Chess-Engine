@@ -10,7 +10,7 @@ interface GameControlsProps {
   onNewGame: () => void;
   onUndo: () => void;
   onResign: () => void;
-  onOfferDraw: () => void;
+  onOfferDraw: () => boolean;
   onExportPgn: () => string;
   onImportPgn: (pgn: string) => boolean;
   onShareLink: () => string;
@@ -33,6 +33,7 @@ export const GameControls: React.FC<GameControlsProps> = ({
   const [pgnText, setPgnText] = useState('');
   const [pgnError, setPgnError] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [drawFeedback, setDrawFeedback] = useState<string | null>(null);
 
   const activeLevel = LEVEL_PRESETS.find((l) => l.id === activeLevelId) || LEVEL_PRESETS[4];
 
@@ -56,6 +57,18 @@ export const GameControls: React.FC<GameControlsProps> = ({
       setPgnError(false);
     } else {
       setPgnError(true);
+    }
+  };
+
+  const handleOfferDraw = () => {
+    if (typeof window !== 'undefined') {
+      const confirmed = window.confirm('Offer a draw to TwentyFish?');
+      if (!confirmed) return;
+    }
+    const accepted = onOfferDraw();
+    if (!accepted) {
+      setDrawFeedback('Draw declined: The game has fewer than 10 moves.');
+      setTimeout(() => setDrawFeedback(null), 3000);
     }
   };
 
@@ -152,7 +165,7 @@ export const GameControls: React.FC<GameControlsProps> = ({
         </button>
 
         <button
-          onClick={onOfferDraw}
+          onClick={handleOfferDraw}
           title="Offer Draw"
           className="p-2 rounded-lg bg-neutral-50 dark:bg-neutral-900/40 hover:bg-neutral-100 dark:hover:bg-neutral-700 text-neutral-600 dark:text-neutral-400 flex flex-col items-center justify-center text-[10px] transition-colors"
         >
@@ -178,6 +191,12 @@ export const GameControls: React.FC<GameControlsProps> = ({
           <span>{copiedLink ? 'Copied' : 'Share'}</span>
         </button>
       </div>
+
+      {drawFeedback && (
+        <div className="p-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 text-xs rounded-lg text-center animate-fade-in font-medium">
+          {drawFeedback}
+        </div>
+      )}
 
       {/* PGN Modal */}
       {showPgnModal && (

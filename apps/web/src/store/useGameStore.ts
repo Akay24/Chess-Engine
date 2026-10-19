@@ -38,7 +38,7 @@ interface GameState {
   selectPly: (ply: number | null) => void;
   setPlayerColor: (color: 'w' | 'b') => void;
   resign: () => void;
-  offerDraw: () => void;
+  offerDraw: () => boolean;
   resetGame: () => void;
   setBoardTheme: (theme: BoardTheme) => void;
   toggleDarkMode: () => void;
@@ -201,11 +201,16 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   offerDraw: () => {
+    // Only allow draw agreement if at least 10 moves have been played
+    if (get().sanMoves.length < 10) {
+      return false;
+    }
     set({
       isGameOver: true,
       gameResult: 'Game drawn by mutual agreement',
       clock: { ...get().clock, isRunning: false }
     });
+    return true;
   },
 
   resetGame: () => {
